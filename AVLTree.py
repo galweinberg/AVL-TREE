@@ -138,7 +138,9 @@ class AVLTree(object):
 	dictionary larger than node.key.
 	"""
 	def split(self, node):
+		print("a")
 		return None, None
+		
 
 	
 	"""returns an array representing dictionary 
