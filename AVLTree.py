@@ -250,8 +250,14 @@ class AVLTree(object):
 	dictionary larger than node.key.
 	"""
 def split(self, node):
-    t1, t2 = self._recSplit(self.root, node.key)
-    return t1, t2
+	# defensive: if node is None return two empty trees
+	if node is None:
+		return AVLTree(), AVLTree()
+
+	left_tree, right_tree = self._recSplit(self.root, node.key)
+	# make the original tree unusable per spec
+	self.root = None
+	return left_tree, right_tree
 
 
 def _recSplit(self, v, key):
@@ -295,13 +301,18 @@ def _recSplit(self, v, key):
 		# Tmid holds keys (key, v.key); right_sub holds keys > v.key
 		# So Tmid < v.key < right_sub
 		if Tmid.root is None:
-			# no Tmid: just create a tree with v and right_sub
+			# no Tmid: create a tree with v as root and right_sub as right child
 			T2 = AVLTree()
 			new_root = AVLNode(v.key, v.value)
 			new_root.left = None
 			new_root.right = right_sub.root
-			if right_sub.root:
-				right_sub.root.parent = new_root
+			if new_root.right:
+				new_root.right.parent = new_root
+			new_root.parent = None
+			# compute height safely (child height fallback = -1)
+			left_h = new_root.left.height if new_root.left else -1
+			right_h = new_root.right.height if new_root.right else -1
+			new_root.height = 1 + max(left_h, right_h)
 			T2.root = new_root
 			# optionally: self.fixUpwards(new_root)
 		else:
@@ -327,9 +338,14 @@ def _recSplit(self, v, key):
 			T1 = AVLTree()
 			new_root = AVLNode(v.key, v.value)
 			new_root.left = left_sub.root
-			if left_sub.root:
-				left_sub.root.parent = new_root
+			if new_root.left:
+				new_root.left.parent = new_root
 			new_root.right = None
+			new_root.parent = None
+			# compute height safely
+			left_h = new_root.left.height if new_root.left else -1
+			right_h = new_root.right.height if new_root.right else -1
+			new_root.height = 1 + max(left_h, right_h)
 			T1.root = new_root
 			# optionally: self.fixUpwards(new_root)
 		else:
