@@ -45,6 +45,7 @@ class AVLTree(object):
 	"""
 	def __init__(self):
 		self.root = None
+		self.treeSize = 0
 
 
 	"""searches for a node in the dictionary corresponding to the key (starting at the root)
@@ -124,16 +125,21 @@ class AVLTree(object):
 	or the opposite way
 	"""
 	def join(self, tree2, key, val):
+		size_self = self.treeSize
+		size_tree2 = tree2.treeSize
+
 		# handle empty trees: result will reside in self
 		if self.root is None:
 			# insert separating key into tree2 and make that the result
 			tree2.insert(key, val)
 			self.root = tree2.root
+			self.treeSize = size_tree2 + 1
 			return
 
 		if tree2.root is None:
 			# insert separating key into self
 			self.insert(key, val)
+			self.treeSize = size_self + 1
 			return
 
 		# determine which tree holds keys < key (left) and which > key (right)
@@ -165,7 +171,8 @@ class AVLTree(object):
 			new_root.height = h_left + 1
 			self.root = new_root
 
-			self.fixUpwards(new_root) # TODO make sure its implemented with that name!!!!! 
+			self.fixUpwards(new_root) # TODO make sure its implemented with that name!
+			self.treeSize = size_self + size_tree2 + 1
 			return
 
 		# ensure taller holds the taller tree
@@ -177,6 +184,7 @@ class AVLTree(object):
 		# let the taller tree attach the shorter along the correct spine
 		taller._join_with_shorter(shorter, key, val, taller_is_left)
 		self.root = taller.root
+		self.treeSize = size_self + size_tree2 + 1
 		return
 	
 	def _join_with_shorter(self, shorter, key, val, self_is_left):
@@ -249,111 +257,111 @@ class AVLTree(object):
 	dictionary smaller than node.key, and right is an AVLTree representing the keys in the 
 	dictionary larger than node.key.
 	"""
-def split(self, node):
-	# defensive: if node is None return two empty trees
-	if node is None:
-		return AVLTree(), AVLTree()
+	def split(self, node):
+		# defensive: if node is None return two empty trees
+		if node is None:
+			return AVLTree(), AVLTree()
 
-	left_tree, right_tree = self._recSplit(self.root, node.key)
-	# make the original tree unusable per spec
-	self.root = None
-	return left_tree, right_tree
-
-
-def _recSplit(self, v, key):
-	"""
-	Recursive helper. Returns (left_tree, right_tree) where:
-	left_tree  contains all keys < key in subtree rooted at v
-	right_tree contains all keys > key
-	"""
-	# base case: empty subtree
-	if v is None:
-		return AVLTree(), AVLTree()
-
-	# exact split at v
-	if v.key == key:
-		left_tree = AVLTree()
-		right_tree = AVLTree()
-
-		left_tree.root = v.left
-		if left_tree.root:
-			left_tree.root.parent = None
-
-		right_tree.root = v.right
-		if right_tree.root:
-			right_tree.root.parent = None
-
-		# detach v itself
-		v.left = v.right = v.parent = None
+		left_tree, right_tree = self._recSplit(self.root, node.key)
+		# make the original tree unusable per spec
+		self.root = None
 		return left_tree, right_tree
 
-	# key is in the left subtree
-	if key < v.key:
-		# split the left child
-		T1, Tmid = self._recSplit(v.left, key)
 
-		# build T2 = Join(Tmid, v, v.right)
-		right_sub = AVLTree()
-		right_sub.root = v.right
-		if right_sub.root:
-			right_sub.root.parent = None
+	def _recSplit(self, v, key):
+		"""
+		Recursive helper. Returns (left_tree, right_tree) where:
+		left_tree  contains all keys < key in subtree rooted at v
+		right_tree contains all keys > key
+		"""
+		# base case: empty subtree
+		if v is None:
+			return AVLTree(), AVLTree()
 
-		# Tmid holds keys (key, v.key); right_sub holds keys > v.key
-		# So Tmid < v.key < right_sub
-		if Tmid.root is None:
-			# no Tmid: create a tree with v as root and right_sub as right child
-			T2 = AVLTree()
-			new_root = AVLNode(v.key, v.value)
-			new_root.left = None
-			new_root.right = right_sub.root
-			if new_root.right:
-				new_root.right.parent = new_root
-			new_root.parent = None
-			# compute height safely (child height fallback = -1)
-			left_h = new_root.left.height if new_root.left else -1
-			right_h = new_root.right.height if new_root.right else -1
-			new_root.height = 1 + max(left_h, right_h)
-			T2.root = new_root
-			# optionally: self.fixUpwards(new_root)
+		# exact split at v
+		if v.key == key:
+			left_tree = AVLTree()
+			right_tree = AVLTree()
+
+			left_tree.root = v.left
+			if left_tree.root:
+				left_tree.root.parent = None
+
+			right_tree.root = v.right
+			if right_tree.root:
+				right_tree.root.parent = None
+
+			# detach v itself
+			v.left = v.right = v.parent = None
+			return left_tree, right_tree
+
+		# key is in the left subtree
+		if key < v.key:
+			# split the left child
+			T1, Tmid = self._recSplit(v.left, key)
+
+			# build T2 = Join(Tmid, v, v.right)
+			right_sub = AVLTree()
+			right_sub.root = v.right
+			if right_sub.root:
+				right_sub.root.parent = None
+
+			# Tmid holds keys (key, v.key); right_sub holds keys > v.key
+			# So Tmid < v.key < right_sub
+			if Tmid.root is None:
+				# no Tmid: create a tree with v as root and right_sub as right child
+				T2 = AVLTree()
+				new_root = AVLNode(v.key, v.value)
+				new_root.left = None
+				new_root.right = right_sub.root
+				if new_root.right:
+					new_root.right.parent = new_root
+				new_root.parent = None
+				# compute height safely (child height fallback = -1)
+				left_h = new_root.left.height if new_root.left else -1
+				right_h = new_root.right.height if new_root.right else -1
+				new_root.height = 1 + max(left_h, right_h)
+				T2.root = new_root
+				# optionally: self.fixUpwards(new_root)
+			else:
+				Tmid.join(right_sub, v.key, v.value)
+				T2 = Tmid
+
+			# detach original v
+			v.left = v.right = v.parent = None
+			return T1, T2
+
+		# key is in the right subtree (key > v.key)
 		else:
-			Tmid.join(right_sub, v.key, v.value)
-			T2 = Tmid
+			# split the right child
+			Tmid, T2 = self._recSplit(v.right, key)
 
-		# detach original v
-		v.left = v.right = v.parent = None
-		return T1, T2
+			# build T1 = Join(v.left, v, Tmid)
+			left_sub = AVLTree()
+			left_sub.root = v.left
+			if left_sub.root:
+				left_sub.root.parent = None
 
-	# key is in the right subtree (key > v.key)
-	else:
-		# split the right child
-		Tmid, T2 = self._recSplit(v.right, key)
+			if Tmid.root is None:
+				T1 = AVLTree()
+				new_root = AVLNode(v.key, v.value)
+				new_root.left = left_sub.root
+				if new_root.left:
+					new_root.left.parent = new_root
+				new_root.right = None
+				new_root.parent = None
+				# compute height safely
+				left_h = new_root.left.height if new_root.left else -1
+				right_h = new_root.right.height if new_root.right else -1
+				new_root.height = 1 + max(left_h, right_h)
+				T1.root = new_root
+				# optionally: self.fixUpwards(new_root)
+			else:
+				left_sub.join(Tmid, v.key, v.value)
+				T1 = left_sub
 
-		# build T1 = Join(v.left, v, Tmid)
-		left_sub = AVLTree()
-		left_sub.root = v.left
-		if left_sub.root:
-			left_sub.root.parent = None
-
-		if Tmid.root is None:
-			T1 = AVLTree()
-			new_root = AVLNode(v.key, v.value)
-			new_root.left = left_sub.root
-			if new_root.left:
-				new_root.left.parent = new_root
-			new_root.right = None
-			new_root.parent = None
-			# compute height safely
-			left_h = new_root.left.height if new_root.left else -1
-			right_h = new_root.right.height if new_root.right else -1
-			new_root.height = 1 + max(left_h, right_h)
-			T1.root = new_root
-			# optionally: self.fixUpwards(new_root)
-		else:
-			left_sub.join(Tmid, v.key, v.value)
-			T1 = left_sub
-
-		v.left = v.right = v.parent = None
-		return T1, T2
+			v.left = v.right = v.parent = None
+			return T1, T2
 	
 	"""returns an array representing dictionary 
 
@@ -361,8 +369,18 @@ def _recSplit(self, v, key):
 	@returns: a sorted list according to key of touples (key, value) representing the data structure
 	"""
 	def avl_to_array(self):
-		return None
-
+		retArray,stack = [], []
+		node = self.root 
+		
+		while stack or node:
+			while node:
+				stack.append(node)
+				node = node.left
+			node = stack.pop()
+			retArray.append((node.key, node.value))
+			node = node.right
+		return retArray
+	
 
 	"""returns the node with the maximal key in the dictionary
 
@@ -370,7 +388,12 @@ def _recSplit(self, v, key):
 	@returns: the maximal node, None if the dictionary is empty
 	"""
 	def max_node(self):
-		return None
+		node = self.root
+		if node is None:
+			return None
+		while node.right:
+			node = node.right
+		return node if node else None
 
 	"""returns the number of items in dictionary 
 
@@ -378,7 +401,7 @@ def _recSplit(self, v, key):
 	@returns: the number of items in dictionary 
 	"""
 	def size(self):
-		return -1	
+		return self.treeSize #TODO need to update size in insert and delete methods	
 
 
 	"""returns the root of the tree representing the dictionary
@@ -387,4 +410,4 @@ def _recSplit(self, v, key):
 	@returns: the root, None if the dictionary is empty
 	"""
 	def get_root(self):
-		return None
+		return self.root if self.root else None
