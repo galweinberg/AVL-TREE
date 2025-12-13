@@ -16,16 +16,22 @@ class AVLNode(object):
 	@type value: string
 	@param value: data of your node
 	"""
-	def __init__(self, key, value, is_virtual=False):
+	def __init__(self, key=None, value=None, is_virtual=False):
 		self.key = key
 		self.value = value
-		self.left = None
-		self.right = None
 		self.parent = None
-		# Virtual nodes represent the "null" children required by the assignment.
-		# They have height -1, while real leaves start at height 0.
 		self.is_virtual = is_virtual
-		self.height = -1 if is_virtual else 0
+		if is_virtual:
+			self.left = None
+			self.right = None
+			self.height = -1
+		else:
+			# real nodes start with explicit virtual children
+			self.left = AVLNode(is_virtual=True)
+			self.left.parent = self
+			self.right = AVLNode(is_virtual=True)
+			self.right.parent = self
+			self.height = 0
 	
 	# Treat virtual nodes as falsy so existing code that checks "if node:"
 	# behaves naturally with explicit virtual children.
@@ -52,7 +58,7 @@ class AVLTree(object):
 	Constructor, you are allowed to add more fields.
 	"""
 	def __init__(self):
-		self.root = None
+		self.root = AVLNode(is_virtual=True)
 		self.treeSize = 0
 
 
@@ -64,14 +70,15 @@ class AVLTree(object):
 	@returns: a tuple (x,e) where x is the node corresponding to key (or None if not found),
 	and e is the number of edges on the path between the starting node and ending node+1.
 	"""
+	# Runtime: O(log n)
 	def search(self, key):
-		if self.root is None:
+		if not self.root.is_real_node():
 			return None, 1
 
 		node = self.root
 		edges = 0
 
-		while node and node.is_real_node() and node.key != key:
+		while node.is_real_node() and node.key != key:
 			if key < node.key:
 				node = node.left
 			else:
@@ -89,16 +96,20 @@ class AVLTree(object):
 	@returns: a tuple (x,e) where x is the node corresponding to key (or None if not found),
 	and e is the number of edges on the path between the starting node and ending node+1.
 	"""
+	# Runtime: O(log n)
 	def finger_search(self, key):
-		if self.root is None:
+		if not self.root.is_real_node():
 			return None, 1
 
 		start = self.max_node()
+		if start is None or not start.is_real_node():
+			return None, 1
+
 		node = start
 		edges = 0
 
-		# climb up from max until we find an ancestor whose parent is not strictly larger
-		while node.parent and key < node.parent.key:
+		# climb up until we reach an ancestor whose key is >= desired (so subtree may contain key)
+		while node.parent and key < node.key:
 			node = node.parent
 			edges += 1
 
@@ -126,23 +137,20 @@ class AVLTree(object):
 	e is the number of edges on the path between the starting node and new node before rebalancing,
 	and h is the number of PROMOTE cases during the AVL rebalancing
 	"""
+	# Runtime: O(log n)
 	def insert(self, key, val):
 		# empty tree -> create root
-		if self.root is None:
+		if not self.root.is_real_node():
 			new_node = AVLNode(key, val)
-			new_node.left = self._virtual_node()
-			new_node.right = self._virtual_node()
-			new_node.left.parent = new_node
-			new_node.right.parent = new_node
 			self.root = new_node
 			self.treeSize = 1
-			return new_node, 1, 0
+			return new_node, 0, 0
 
 		current = self.root
 		parent = None
 		edges = 0
 
-		while current and current.is_real_node():
+		while current.is_real_node():
 			parent = current
 			if key < current.key:
 				current = current.left
@@ -151,10 +159,6 @@ class AVLTree(object):
 			edges += 1
 
 		new_node = AVLNode(key, val)
-		new_node.left = self._virtual_node()
-		new_node.right = self._virtual_node()
-		new_node.left.parent = new_node
-		new_node.right.parent = new_node
 		new_node.parent = parent
 
 		if key < parent.key:
@@ -165,7 +169,7 @@ class AVLTree(object):
 		promotes = self.fixUpwards(parent, count_promote=True)
 		self.treeSize += 1
 
-		return new_node, (edges if edges > 0 else 1), promotes
+		return new_node, edges, promotes
 
 
 	"""inserts a new node into the dictionary with corresponding key and value, starting at the max
@@ -180,16 +184,13 @@ class AVLTree(object):
 	e is the number of edges on the path between the starting node and new node before rebalancing,
 	and h is the number of PROMOTE cases during the AVL rebalancing
 	"""
+	# Runtime: O(log n)
 	def finger_insert(self, key, val):
-		if self.root is None:
+		if not self.root.is_real_node():
 			new_node = AVLNode(key, val)
-			new_node.left = self._virtual_node()
-			new_node.right = self._virtual_node()
-			new_node.left.parent = new_node
-			new_node.right.parent = new_node
 			self.root = new_node
 			self.treeSize = 1
-			return new_node, 1, 0
+			return new_node, 0, 0
 
 		start = self.max_node()
 		node = start
@@ -202,7 +203,7 @@ class AVLTree(object):
 
 		parent = None
 		current = node
-		while current and current.is_real_node():
+		while current.is_real_node():
 			parent = current
 			if key < current.key:
 				current = current.left
@@ -211,10 +212,6 @@ class AVLTree(object):
 			edges += 1
 
 		new_node = AVLNode(key, val)
-		new_node.left = self._virtual_node()
-		new_node.right = self._virtual_node()
-		new_node.left.parent = new_node
-		new_node.right.parent = new_node
 		new_node.parent = parent
 
 		if key < parent.key:
@@ -225,7 +222,7 @@ class AVLTree(object):
 		promotes = self.fixUpwards(parent, count_promote=True)
 		self.treeSize += 1
 
-		return new_node, (edges if edges > 0 else 1), promotes
+		return new_node, edges, promotes
 
 
 	"""deletes node from the dictionary
@@ -233,20 +230,18 @@ class AVLTree(object):
 	@type node: AVLNode
 	@pre: node is a real pointer to a node in self
 	"""
+	# Runtime: O(log n)
 	def delete(self, node):
 		if node is None or not node.is_real_node():
 			return
 
 		# if node has two real children, swap with successor and delete the successor instead
-		if node.left and node.right:
+		if node.left and node.left.is_real_node() and node.right and node.right.is_real_node():
 			successor = self._min_node(node.right)
 			node.key, node.value = successor.key, successor.value
 			node = successor
 
-		child = node.left if node.left else node.right  # at most one real child
-
-		if child and not child.is_real_node():
-			child = None
+		child = node.left if node.left and node.left.is_real_node() else node.right if node.right and node.right.is_real_node() else None  # at most one real child
 
 		parent = node.parent
 
@@ -256,7 +251,7 @@ class AVLTree(object):
 				child.parent = None
 				self.root = child
 			else:
-				self.root = None
+				self.root = self._virtual_node()
 			start_rebalance = child if child else None
 		else:
 			if parent.left is node:
@@ -283,7 +278,7 @@ class AVLTree(object):
 	
 	# ----------------- Internal helpers -----------------
 	def _virtual_node(self):
-		return AVLNode(None, None, is_virtual=True)
+		return AVLNode(is_virtual=True)
 
 	def _height(self, node):
 		return node.height if node else -1
@@ -293,6 +288,15 @@ class AVLTree(object):
 
 	def _balance_factor(self, node):
 		return self._height(node.left) - self._height(node.right)
+
+	def _recompute(self, node):
+		"""Recompute height recursively (used after structural splits)."""
+		if node is None or not node.is_real_node():
+			return -1
+		lh = self._recompute(node.left)
+		rh = self._recompute(node.right)
+		node.height = 1 + max(lh, rh)
+		return node.height
 
 	def _rotate_left(self, x):
 		y = x.right
@@ -339,6 +343,7 @@ class AVLTree(object):
 		@rtype: int
 		@returns: number of promotions encountered (0 if count_promote is False)
 		"""
+		# Runtime: O(log n)
 		promotions = 0
 		current = node
 
@@ -387,23 +392,24 @@ class AVLTree(object):
 	@pre: all keys in self are smaller than key and all keys in tree2 are larger than key,
 	or the opposite way
 	"""
+	# Runtime: O(log n)
 	def join(self, tree2, key, val):
+		size_self = self.treeSize
+		size_tree2 = tree2.treeSize
 		# handle empty trees: result will reside in self
-		if self.root is None:
+		if not self.root.is_real_node():
 			# insert separating key into tree2 and make that the result
 			tree2.insert(key, val)
 			self.root = tree2.root
 			# invalidate tree2 per spec
+			self.treeSize = tree2.treeSize
 			tree2.root = None
 			tree2.treeSize = 0
-			# recompute size defensively
-			self.treeSize = self._subtree_size(self.root)
 			return
 
-		if tree2.root is None:
+		if not tree2.root.is_real_node():
 			# insert separating key into self
 			self.insert(key, val)
-			self.treeSize = self._subtree_size(self.root)
 			return
 
 		# determine which tree holds keys < key (left) and which > key (right)
@@ -419,8 +425,8 @@ class AVLTree(object):
 			raise ValueError("Precondition violated: one tree must have all keys < key and the other > key")
 
 		# heights of the two trees (use -1 for empty)
-		h_left = left.root.height if left.root else -1
-		h_right = right.root.height if right.root else -1
+		h_left = left.root.height if left.root and left.root.is_real_node() else -1
+		h_right = right.root.height if right.root and right.root.is_real_node() else -1
 
 		# equal heights -> new root between them
 		if h_left == h_right:
@@ -432,13 +438,13 @@ class AVLTree(object):
 				new_root.left.parent = new_root
 			if new_root.right:
 				new_root.right.parent = new_root
-			new_root.height = h_left + 1
+			self._update_height(new_root)
 			self.root = new_root
 
 			self.fixUpwards(new_root) # TODO make sure its implemented with that name!
 			tree2.root = None
 			tree2.treeSize = 0
-			self.treeSize = self._subtree_size(self.root)
+			self.treeSize = size_self + size_tree2 + 1
 			return
 
 		# ensure taller holds the taller tree
@@ -453,8 +459,7 @@ class AVLTree(object):
 		# make tree2 unusable after join
 		tree2.root = None
 		tree2.treeSize = 0
-		# recompute size defensively to avoid stale counts
-		self.treeSize = self._subtree_size(self.root)
+		self.treeSize = size_self + size_tree2 + 1
 		return
 	
 	def _join_with_shorter(self, shorter, key, val, self_is_left):
@@ -463,7 +468,8 @@ class AVLTree(object):
 		otherwise we walk left spine.
 		After attachment, call self.fixUpwards(new_node) (assumed implemented elsewhere).
 		"""
-		h_short = shorter.root.height if shorter.root else -1
+		# Runtime: O(log n)
+		h_short = shorter.root.height if shorter.root and shorter.root.is_real_node() else -1
 		current = self.root
 		parent = None
 
@@ -532,18 +538,25 @@ class AVLTree(object):
 	dictionary smaller than node.key, and right is an AVLTree representing the keys in the 
 	dictionary larger than node.key.
 	"""
+	# Runtime: O(log n)
 	def split(self, node):
 		# defensive: if node is None return two empty trees
-		if node is None:
+		if node is None or not node.is_real_node():
 			return AVLTree(), AVLTree()
 
 		left_tree, right_tree = self._recSplit(self.root, node.key)
 		# make the original tree unusable per spec
-		self.root = None
+		self.root = AVLNode(is_virtual=True)
 		self.treeSize = 0
-		# recompute sizes for the resulting trees to keep size() consistent
-		left_tree.treeSize = self._subtree_size(left_tree.root)
-		right_tree.treeSize = self._subtree_size(right_tree.root)
+		# per spec size may be stale after split; set to 0 to avoid recounting
+		left_tree.treeSize = 0
+		right_tree.treeSize = 0
+		if left_tree.get_root():
+			left_tree.fixUpwards(left_tree._min_node(left_tree.get_root()), count_promote=False)
+			left_tree.fixUpwards(left_tree.max_node(), count_promote=False)
+		if right_tree.get_root():
+			right_tree.fixUpwards(right_tree._min_node(right_tree.get_root()), count_promote=False)
+			right_tree.fixUpwards(right_tree.max_node(), count_promote=False)
 		return left_tree, right_tree
 
 
@@ -554,7 +567,7 @@ class AVLTree(object):
 		right_tree contains all keys > key
 		"""
 		# base case: empty subtree
-		if v is None:
+		if v is None or not v.is_real_node():
 			return AVLTree(), AVLTree()
 
 		# exact split at v
@@ -578,32 +591,22 @@ class AVLTree(object):
 		if key < v.key:
 			# split the left child
 			T1, Tmid = self._recSplit(v.left, key)
+			if T1.get_root():
+				T1.get_root().parent = None
+			if Tmid.get_root():
+				Tmid.get_root().parent = None
 
 			# build T2 = Join(Tmid, v, v.right)
 			right_sub = AVLTree()
 			right_sub.root = v.right
 			if right_sub.root:
 				right_sub.root.parent = None
+			right_sub.treeSize = 0  # size after split may be stale by spec
 
-			# Tmid holds keys (key, v.key); right_sub holds keys > v.key
-			# So Tmid < v.key < right_sub
-			if Tmid.root is None:
-				# no Tmid: create a tree with v as root and right_sub as right child
-				T2 = AVLTree()
-				new_root = AVLNode(v.key, v.value)
-				new_root.left = self._virtual_node()
-				new_root.left.parent = new_root
-				new_root.right = right_sub.root
-				if new_root.right:
-					new_root.right.parent = new_root
-				new_root.parent = None
-				# ensure right child exists as virtual if needed
-				if new_root.right is None:
-					new_root.right = self._virtual_node()
-					new_root.right.parent = new_root
-				self._update_height(new_root)
-				T2.root = new_root
-				# optionally: self.fixUpwards(new_root)
+			if not Tmid.root.is_real_node():
+				# no middle tree: insert v into right_sub to preserve AVL balance
+				right_sub.insert(v.key, v.value)
+				T2 = right_sub
 			else:
 				Tmid.join(right_sub, v.key, v.value)
 				T2 = Tmid
@@ -616,28 +619,22 @@ class AVLTree(object):
 		else:
 			# split the right child
 			Tmid, T2 = self._recSplit(v.right, key)
+			if Tmid.get_root():
+				Tmid.get_root().parent = None
+			if T2.get_root():
+				T2.get_root().parent = None
 
 			# build T1 = Join(v.left, v, Tmid)
 			left_sub = AVLTree()
 			left_sub.root = v.left
 			if left_sub.root:
 				left_sub.root.parent = None
+			left_sub.treeSize = 0  # size may be stale after split
 
-			if Tmid.root is None:
-				T1 = AVLTree()
-				new_root = AVLNode(v.key, v.value)
-				new_root.left = left_sub.root
-				if new_root.left:
-					new_root.left.parent = new_root
-				else:
-					new_root.left = self._virtual_node()
-					new_root.left.parent = new_root
-				new_root.right = self._virtual_node()
-				new_root.right.parent = new_root
-				new_root.parent = None
-				self._update_height(new_root)
-				T1.root = new_root
-				# optionally: self.fixUpwards(new_root)
+			if not Tmid.root.is_real_node():
+				# no middle tree: insert v into left_sub to preserve AVL balance
+				left_sub.insert(v.key, v.value)
+				T1 = left_sub
 			else:
 				left_sub.join(Tmid, v.key, v.value)
 				T1 = left_sub
@@ -650,12 +647,16 @@ class AVLTree(object):
 	@rtype: list
 	@returns: a sorted list according to key of touples (key, value) representing the data structure
 	"""
+	# Runtime: O(n)
 	def avl_to_array(self):
 		retArray,stack = [], []
 		node = self.root 
 		
-		while stack or node:
-			while node:
+		if not node.is_real_node():
+			return retArray
+
+		while stack or node.is_real_node():
+			while node.is_real_node():
 				stack.append(node)
 				node = node.left
 			node = stack.pop()
@@ -671,9 +672,9 @@ class AVLTree(object):
 	"""
 	def max_node(self):
 		node = self.root
-		if node is None:
+		if node is None or not node.is_real_node():
 			return None
-		while node.right:
+		while node.right and node.right.is_real_node():
 			node = node.right
 		return node if node else None
 
@@ -692,4 +693,4 @@ class AVLTree(object):
 	@returns: the root, None if the dictionary is empty
 	"""
 	def get_root(self):
-		return self.root if self.root else None
+		return self.root if self.root and self.root.is_real_node() else None
